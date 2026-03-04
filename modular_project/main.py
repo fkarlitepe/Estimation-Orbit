@@ -2,14 +2,12 @@
 import os
 import time as timer
 import numpy as np
-from typing import Dict, Any
 
-# Diğer modüllerden fonksiyonları içe aktar
 from config import CONFIG
-from data_utils import parse_sp3, write_sp3
+from data_utils import parse_sp3
 from models import (predict_random_forest, predict_svr, predict_knn, 
                     predict_mlp, predict_lagrange, predict_kalman_filter)
-from metrics import compute_metrics, visualize_results
+from metrics import visualize_model_grid, visualize_orbit_comparison
 
 
 def cross_validate_leave_one_out(epoch_times, sat_xyz, sat_clock, method_func, config, method_name):
@@ -29,12 +27,12 @@ def cross_validate_leave_one_out(epoch_times, sat_xyz, sat_clock, method_func, c
         try:
             p_xyz, _ = method_func(train_times, train_xyz, train_clk, p_at, config)
             errors[i] = p_xyz[0] - sat_xyz[i]
-        except:
+        except Exception:
             errors[i] = np.nan
             
     valid = ~np.any(np.isnan(errors), axis=1)
     if not np.any(valid):
-        return 99999.0
+        return float('inf')
         
     rmse = np.sqrt(np.mean(errors[valid]**2, axis=0))
     rmse_3d_m = np.sqrt(np.sum(rmse**2)) * 1000
@@ -43,7 +41,7 @@ def cross_validate_leave_one_out(epoch_times, sat_xyz, sat_clock, method_func, c
     return rmse_3d_m
 
 
-def run_pipeline(config: Dict[str, Any]):
+def run_pipeline(config):
     """
     Ana işlem akışını yöneten koordinasyon fonksiyonu.
     """
@@ -61,7 +59,7 @@ def run_pipeline(config: Dict[str, Any]):
         print(f"  [HATA] SP3 dosyası bulunamadı: {sp3_path}")
         return
 
-    e_times, s_data, e_interval = parse_sp3(sp3_path, config["constellation"])
+    e_times, s_data, _ = parse_sp3(sp3_path, config["constellation"])
     
     # 2. Tahmin Zamanlarını Hazırlama
     p_start, p_end, p_step = config["predict_start_sec"], int(e_times[-1]), config["predict_step_sec"]
@@ -70,15 +68,14 @@ def run_pipeline(config: Dict[str, Any]):
     # 3. Modellerin Belirlenmesi
     methods = {
         'RF': predict_random_forest, 'SVR': predict_svr, 'KNN': predict_knn,
-        'MLP': predict_mlp, 'Lagrange': predict_lagrange, 'EKF': predict_kalman_filter
+        'MLP': predict_mlp, 'EKF': predict_kalman_filter, 'Lagrange': predict_lagrange
     }
     
     prn_min, prn_max = config["satellite_range"]
     valid_prns = sorted([p for p in s_data if prn_min <= p <= prn_max])
     
     all_results = {m: {} for m in methods}
-    out_dir = os.path.abspath(os.path.join(base_dir, config["output_dir"]))
-    os.makedirs(out_dir, exist_ok=True)
+
 
     # 4. Modelleri Çalıştırma
     for idx, prn in enumerate(valid_prns):
@@ -89,8 +86,9 @@ def run_pipeline(config: Dict[str, Any]):
             start = timer.time()
             try:
                 p_xyz, p_clk = func(e_times, sat_xyz, sat_clk, p_times, config)
+                elapsed = timer.time() - start
                 all_results[name][prn] = (p_times, p_xyz, p_clk)
-                print(f"    {name:10s}: OK ({timer.time()-start:.2f}s)")
+                print(f"    {name:10s}: OK ({elapsed:.2f}s)")
             except Exception as e:
                 print(f"    {name:10s}: FAIL - {e}")
 
@@ -98,18 +96,10 @@ def run_pipeline(config: Dict[str, Any]):
     if valid_prns:
         demo_prn = valid_prns[0]
         results_subset = {m: (v[demo_prn][0], v[demo_prn][1]) for m, v in all_results.items() if demo_prn in v}
-        visualize_results(e_times, s_data[demo_prn][:, 0:3], results_subset, demo_prn, out_dir)
+        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+        visualize_model_grid(e_times, s_data[demo_prn][:, 0:3], results_subset, demo_prn, output_dir)
+        visualize_orbit_comparison(e_times, s_data[demo_prn][:, 0:3], results_subset, demo_prn, output_dir)
 
-    # 6. Kayıt ve SP3 Çıktısı
-    print(f"\nSonuçlar {out_dir} klasörüne kaydediliyor...")
-    for name in methods:
-        sat_res_sp3 = {}
-        for p in valid_prns:
-            if p in all_results[name]:
-                sat_res_sp3[p] = (all_results[name][p][1], all_results[name][p][2])
-        
-        if sat_res_sp3:
-            write_sp3(os.path.join(out_dir, f"est_{name}.sp3"), p_times, sat_res_sp3, p_step, config["constellation"])
 
     # 7. Çapraz Doğrulama (İsteğe Bağlı)
     if config.get("run_cross_validation"):
@@ -119,8 +109,8 @@ def run_pipeline(config: Dict[str, Any]):
         for name, func in methods.items():
             try:
                 cv_summary[name] = cross_validate_leave_one_out(e_times, s_data[target_prn][:, 0:3], s_data[target_prn][:, 3:4], func, config, name)
-            except:
-                cv_summary[name] = 999999.0
+            except Exception:
+                cv_summary[name] = float('inf')
         
         # Özet Tablosu Yazdır
         print("\n" + "-"*40)
@@ -128,9 +118,30 @@ def run_pipeline(config: Dict[str, Any]):
         print("-"*40)
         for name in sorted(cv_summary, key=cv_summary.get):
             val = cv_summary[name]
-            stat = f"{val:18.3f}" if val < 900000 else "HATA"
+            stat = f"{val:18.3f}" if np.isfinite(val) else "HATA"
             print(f"{name:15s} | {stat}")
         print("-"*40)
+
+        # LOO-CV Sonuç Grafiği
+        import matplotlib.pyplot as plt
+        valid_cv = {k: v for k, v in cv_summary.items() if np.isfinite(v)}
+        if valid_cv:
+            fig_cv, ax_cv = plt.subplots(figsize=(10, 6))
+            colors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12', '#1abc9c']
+            names = list(valid_cv.keys())
+            values = [valid_cv[n] / 1000 for n in names]  # km cinsine çevir
+            bars = ax_cv.bar(names, values, color=colors[:len(names)], edgecolor='white', linewidth=1.5)
+            ax_cv.set_title('LOO-CV 3D RMSE Karşılaştırması', fontsize=14, fontweight='bold')
+            ax_cv.set_ylabel('3D RMSE (km)')
+            ax_cv.grid(axis='y', alpha=0.3)
+            for bar, val in zip(bars, values):
+                ax_cv.text(bar.get_x() + bar.get_width()/2, bar.get_height(),
+                          f'{val:.1f} km', ha='center', va='bottom', fontweight='bold', fontsize=10)
+            plt.tight_layout()
+            cv_png = os.path.join(output_dir, "loo_cv_comparison.png")
+            fig_cv.savefig(cv_png, dpi=200, bbox_inches='tight', facecolor='white')
+            print(f"  [KAYIT] LOO-CV grafiği kaydedildi: {cv_png}")
+            plt.show()
         
     print("\n" + "="*70)
     print("  İŞLEM BAŞARIYLA TAMAMLANDI!")

@@ -1,19 +1,16 @@
 # -*- coding: utf-8 -*-
 
-# =============================================================================
-# YAPILANDIRMA (CONFIG) PARAMETRELERİ
-# =============================================================================
 # Proje genelinde kullanılan tüm sabitler ve model parametreleri burada yönetilir.
 
 CONFIG = {
     # --- Veri Kaynakları ---
-    "sp3_file": r"..\precise orbit\precise\COD0MGXFIN_20200330000_01D_05M_ORB.SP3",
-    "constellation": "G",                               # G=GPS, R=GLONASS, E=Galileo, C=BeiDou
-    "satellite_range": (1, 32),                         # Analiz edilecek uydu PRN aralığı
+    "sp3_file": r"..\precise orbit\precise\GRG0MGXFIN_20200330000_01D_15M_ORB.SP3",
+    "constellation": "G",                                # G=GPS, R=GLONASS, E=Galileo, C=BeiDou
+    "satellite_range": (1, 32),                          # Analiz edilecek uydu PRN aralığı
     
     # --- Tahmin Zamanlaması ---
-    "predict_start_sec": 1,                             # Tahminin başlayacağı saniye
-    "predict_step_sec": 1,                              # Tahmin adımı (1s = Her saniye çözüm)
+    "predict_start_sec": 1,                              # Tahminin başlayacağı saniye
+    "predict_step_sec": 900,                             # Tahmin adımı (900s = 15 Dakika)
     
     # --- Makine Öğrenmesi Model Parametreleri ---
     "rf_n_estimators": 100,
@@ -33,7 +30,5 @@ CONFIG = {
     "ekf_measurement_noise": 1e-6,                      # SP3 ölçüm gürültüsü
     
     # --- Çıktı Yönetimi ---
-    "output_dir": "results_modular",                    # Çıktıların kaydedileceği klasör
-    "km_to_m": True,                                    # Sonuçları metreye çevir
     "run_cross_validation": True,                       # Çapraz doğrulama çalıştırılsın mı?
 }
