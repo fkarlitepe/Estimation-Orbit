@@ -2,6 +2,9 @@
 import os
 import time as timer
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+
 
 from config import CONFIG
 from data_utils import parse_sp3

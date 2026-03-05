@@ -139,10 +139,58 @@ def predict_lagrange(epoch_times, sat_xyz, sat_clock, predict_times, config):
 
 def predict_kalman_filter(epoch_times, sat_xyz, sat_clock, predict_times, config):
     """
-    Extended Kalman Filter + RTS Smoother: 6 durumlu (konum+hız) durum uzayı modeli.
+    Gerçek Extended Kalman Filter (EKF) + RTS Smoother: 
+    Yörünge dinamiği (İki Cisim Problemi) kullanılarak modellendi.
     Saat için LR kullanılır çünkü EKF'nin durum vektörüne saat eklemek
     tüm matris yapısının yeniden tasarlanmasını gerektirir.
     """
+    MU = 398600.4418  # Dünya'nın standart kütleçekim parametresi (km^3/s^2)
+
+    def orbit_dynamics(state):
+        r = state[0:3]
+        v = state[3:6]
+        r_norm = np.linalg.norm(r)
+        a = -MU / (r_norm**3) * r
+        return np.hstack((v, a))
+
+    def rk4_step(state, dt):
+        if dt == 0:
+            return state
+        k1 = orbit_dynamics(state)
+        k2 = orbit_dynamics(state + 0.5 * dt * k1)
+        k3 = orbit_dynamics(state + 0.5 * dt * k2)
+        k4 = orbit_dynamics(state + dt * k3)
+        return state + (dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+
+    def get_jacobian(state, dt):
+        r = state[0:3]
+        r_norm = np.linalg.norm(r)
+        r5 = r_norm**5
+        x, y, z = r
+        
+        G_r = np.zeros((3, 3))
+        multiplier = -MU / (r_norm**3)
+        
+        G_r[0, 0] = multiplier + 3 * MU * x**2 / r5
+        G_r[0, 1] = 3 * MU * x * y / r5
+        G_r[0, 2] = 3 * MU * x * z / r5
+        
+        G_r[1, 0] = G_r[0, 1]
+        G_r[1, 1] = multiplier + 3 * MU * y**2 / r5
+        G_r[1, 2] = 3 * MU * y * z / r5
+        
+        G_r[2, 0] = G_r[0, 2]
+        G_r[2, 1] = G_r[1, 2]
+        G_r[2, 2] = multiplier + 3 * MU * z**2 / r5
+
+        A = np.zeros((6, 6))
+        A[0:3, 3:6] = np.eye(3)
+        A[3:6, 0:3] = G_r
+        
+        # Sürekli zaman Jacobian'ının Birinci Derece Taylor Seri Yaklaşımı
+        # F = I + A*dt
+        return np.eye(6) + A * dt
+
     n_epochs = len(epoch_times)
     n_states = 6
     H = np.zeros((3, n_states))
@@ -159,10 +207,12 @@ def predict_kalman_filter(epoch_times, sat_xyz, sat_clock, predict_times, config
     for k in range(n_epochs):
         if k > 0:
             dt = epoch_times[k] - epoch_times[k-1]
-            F = np.eye(n_states)
-            F[0, 3] = F[1, 4] = F[2, 5] = dt
+            # RK4 ile non-lineer durum ilerletme
+            x_pred_k = rk4_step(x_curr, dt)
+            # Sistemin Jacobian matrisini hesaplama
+            F = get_jacobian(x_curr, dt)
             Q = np.diag([config["ekf_process_noise_pos"]]*3 + [config["ekf_process_noise_vel"]]*3) * dt
-            x_pred_k, P_pred_k = F @ x_curr, F @ P_curr @ F.T + Q
+            P_pred_k = F @ P_curr @ F.T + Q
         else:
             x_pred_k, P_pred_k = x_curr, P_curr
 
@@ -171,23 +221,26 @@ def predict_kalman_filter(epoch_times, sat_xyz, sat_clock, predict_times, config
         x_curr = x_pred_k + K @ (sat_xyz[k] - H @ x_pred_k)
         P_curr = (np.eye(n_states) - K @ H) @ P_pred_k
 
-        x_filt.append(x_curr); P_filt.append(P_curr)
-        x_pred_list.append(x_pred_k); P_pred_list.append(P_pred_k)
+        x_filt.append(x_curr)
+        P_filt.append(P_curr)
+        x_pred_list.append(x_pred_k)
+        P_pred_list.append(P_pred_k)
 
     x_smooth = [np.zeros(n_states)] * n_epochs
     x_smooth[-1] = x_filt[-1]
     for k in range(n_epochs-2, -1, -1):
         dt = epoch_times[k+1] - epoch_times[k]
-        F = np.eye(n_states); F[0, 3] = F[1, 4] = F[2, 5] = dt
+        F = get_jacobian(x_filt[k], dt)
         C = P_filt[k] @ F.T @ np.linalg.inv(P_pred_list[k+1])
         x_smooth[k] = x_filt[k] + C @ (x_smooth[k+1] - x_pred_list[k+1])
 
     pred_xyz = np.zeros((len(predict_times), 3))
     for i, t in enumerate(predict_times):
+        # En yakın bilinen/düzleştirilmiş duruma göre dt'yi belirleyip non-lineer olarak ilerletmek
         idx = max(0, min(np.searchsorted(epoch_times, t) - 1, n_epochs - 1))
         dt = t - epoch_times[idx]
-        F_dt = np.eye(n_states); F_dt[0, 3] = F_dt[1, 4] = F_dt[2, 5] = dt
-        pred_xyz[i] = (F_dt @ x_smooth[idx])[0:3]
+        x_sim = rk4_step(x_smooth[idx], dt)
+        pred_xyz[i] = x_sim[0:3]
 
     pred_clock = _predict_clock_linear(epoch_times, sat_clock, predict_times)
     return pred_xyz, pred_clock

@@ -4,7 +4,7 @@
 
 CONFIG = {
     # --- Veri Kaynakları ---
-    "sp3_file": r"..\precise orbit\precise\GRG0MGXFIN_20200330000_01D_15M_ORB.SP3",
+    "sp3_file": r"..\precise orbit\precise\SHA0MGXRAP_20200330000_01D_15M_ORB.SP3",
     "constellation": "G",                                # G=GPS, R=GLONASS, E=Galileo, C=BeiDou
     "satellite_range": (1, 32),                          # Analiz edilecek uydu PRN aralığı
     
