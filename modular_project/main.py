@@ -102,39 +102,57 @@ def run_pipeline(config):
             except Exception as e:
                 print(f"    {name:10s}: FAIL - {e}")
 
-    # 5. Görselleştirme (İlk Uydu İçin)
+    # 5. Görselleştirme (Tüm Uydular İçin)
     if valid_prns:
-        demo_prn = valid_prns[0]
-        results_subset = {m: (v[demo_prn][0], v[demo_prn][1]) for m, v in all_results.items() if demo_prn in v}
         output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
-        visualize_model_grid(e_times, s_data[demo_prn][:, 0:3], results_subset, demo_prn, output_dir)
-        visualize_orbit_comparison(e_times, s_data[demo_prn][:, 0:3], results_subset, demo_prn, output_dir)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        for d_prn in valid_prns:
+            # Sadece bu uyduya ait sonuçları filtrele
+            results_subset = {m: (v[d_prn][0], v[d_prn][1]) for m, v in all_results.items() if d_prn in v}
+            if not results_subset:
+                continue
+            print(f"  [GÖRSEL] {config['constellation']}{d_prn:02d} uydusunun grafikleri çiziliyor...")    
+            visualize_model_grid(e_times, s_data[d_prn][:, 0:3], results_subset, d_prn, output_dir)
+            visualize_orbit_comparison(e_times, s_data[d_prn][:, 0:3], results_subset, d_prn, output_dir)
 
 
-    # 7. Çapraz Doğrulama (İsteğe Bağlı)
+    # 7. Çapraz Doğrulama (Tüm Uyduların Ortalaması)
     if config.get("run_cross_validation"):
-        print("\nÇapraz Doğrulama Testi Başlıyor (LOO-CV)...")
-        cv_summary = {}
-        target_prn = valid_prns[0]
-        for name, func in methods.items():
-            try:
-                cv_summary[name] = cross_validate_leave_one_out(e_times, s_data[target_prn][:, 0:3], s_data[target_prn][:, 3:4], func, config, name)
-            except Exception:
-                cv_summary[name] = float('inf')
+        print("\nÇapraz Doğrulama Testi Başlıyor (LOO-CV - Tüm Uydular)...")
+        cv_summary = {m: [] for m in methods}
+        
+        for target_prn in valid_prns:
+            for name, func in methods.items():
+                try:
+                    score = cross_validate_leave_one_out(e_times, s_data[target_prn][:, 0:3], s_data[target_prn][:, 3:4], func, config, f"{name}-{target_prn:02d}")
+                    if np.isfinite(score):
+                        cv_summary[name].append(score)
+                except Exception:
+                    pass
+                    
+        # Ortalama skorları hesapla
+        cv_avg_summary = {}
+        for name, scores in cv_summary.items():
+            if scores:
+                cv_avg_summary[name] = np.mean(scores)
+            else:
+                cv_avg_summary[name] = float('inf')
         
         # Özet Tablosu Yazdır
         print("\n" + "-"*40)
-        print(f"{'Yöntem':15s} | {'LOO-CV 3D RMSE (m)':>18s}")
+        print(f"{'Yöntem':15s} | {'LOO-CV Ortalama 3D RMSE (m)':>22s}")
         print("-"*40)
-        for name in sorted(cv_summary, key=cv_summary.get):
-            val = cv_summary[name]
-            stat = f"{val:18.3f}" if np.isfinite(val) else "HATA"
+        for name in sorted(cv_avg_summary, key=cv_avg_summary.get):
+            val = cv_avg_summary[name]
+            stat = f"{val:22.3f}" if np.isfinite(val) else "HATA"
             print(f"{name:15s} | {stat}")
         print("-"*40)
 
         # LOO-CV Sonuç Grafiği
         import matplotlib.pyplot as plt
-        valid_cv = {k: v for k, v in cv_summary.items() if np.isfinite(v)}
+        valid_cv = {k: v for k, v in cv_avg_summary.items() if np.isfinite(v)}
         if valid_cv:
             fig_cv, ax_cv = plt.subplots(figsize=(10, 6))
             colors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12', '#1abc9c']
