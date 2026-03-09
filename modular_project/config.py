@@ -17,11 +17,11 @@ CONFIG = {
     "predict_step_sec": 900,                             # Tahmin adımı (Varsayılan 900s)
     
     # --- Makine Öğrenmesi Model Parametreleri ---
-    "rf_n_estimators": 100,
+    "rf_n_estimators": 150,
     "rf_random_state": 0,
     "svr_kernel": "rbf",
-    "knn_n_neighbors": 5,
-    "mlp_max_iter": 1000,
+    "knn_n_neighbors": 9,
+    "mlp_max_iter": 2000,
     "mlp_random_state": 1,
     "mlp_hidden_layers": (50,),
     
