@@ -161,6 +161,7 @@ def run_pipeline(config):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Uydu Yörünge Tahmini")
     parser.add_argument("--sp3", type=str, help="İşlenecek SP3 dosyasının yolu", default=None)
+    parser.add_argument("--cons", type=str, help="Uydu takımı (G=GPS, R=GLONASS, vb.)", default=None)
     args = parser.parse_args()
 
     if args.sp3:
@@ -168,5 +169,11 @@ if __name__ == "__main__":
         print(f"Tanımlanan Dosya (CLI): {CONFIG['sp3_file']}")
     else:
         print(f"Tanımlanan Dosya (Config): {CONFIG['sp3_file']}")
+
+    if args.cons:
+        CONFIG["constellation"] = args.cons
+        print(f"Tanımlanan Uydu Takımı (CLI): {CONFIG['constellation']}")
+    else:
+        print(f"Tanımlanan Uydu Takımı (Config): {CONFIG['constellation']}")
 
     run_pipeline(CONFIG)
