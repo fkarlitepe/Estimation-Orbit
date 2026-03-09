@@ -4,13 +4,17 @@
 
 CONFIG = {
     # --- Veri Kaynakları ---
+    # Not: Komut satırından `--sp3` argümanı ile ezilebilir.
     "sp3_file": r"..\precise orbit\precise\SHA0MGXRAP_20200330000_01D_15M_ORB.SP3",
-    "constellation": "G",                                # G=GPS, R=GLONASS, E=Galileo, C=BeiDou
+    # Not: Komut satırından `--cons` argümanı ile ezilebilir (G=GPS, R=GLONASS, E=Galileo, C=BeiDou).
+    "constellation": "G",                                
     "satellite_range": (1, 32),                          # Analiz edilecek uydu PRN aralığı
     
     # --- Tahmin Zamanlaması ---
     "predict_start_sec": 1,                              # Tahminin başlayacağı saniye
-    "predict_step_sec": 900,                             # Tahmin adımı (900s = 15 Dakika)
+    # Not: Ana kod içerisinde (main.py) parse_sp3'den gelen header_interval değeri ile otomatik ezilir.
+    # Uyumsuzluk çıkmaması için bu değer artık sadece varsayılan bir yedeği temsil eder.
+    "predict_step_sec": 900,                             # Tahmin adımı (Varsayılan 900s)
     
     # --- Makine Öğrenmesi Model Parametreleri ---
     "rf_n_estimators": 100,
