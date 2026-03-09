@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import argparse
 import time as timer
 import numpy as np
 import matplotlib
@@ -62,8 +63,14 @@ def run_pipeline(config):
         print(f"  [HATA] SP3 dosyası bulunamadı: {sp3_path}")
         return
 
-    e_times, s_data, _ = parse_sp3(sp3_path, config["constellation"])
+    e_times, s_data, header_interval = parse_sp3(sp3_path, config["constellation"])
     
+    # Adım değerini (predict_step_sec) dinamik olarak dosyadaki aralık (header_interval) ile güncelle
+    # Eğer config'de verilmişse de eziyoruz ki sp3 dosyasına uyumlu olsun.
+    if header_interval is not None:
+        config["predict_step_sec"] = int(header_interval)
+        print(f"  [BİLGİ] predict_step_sec otomatik olarak {int(header_interval)} saniye olarak ayarlandı.")
+
     # 2. Tahmin Zamanlarını Hazırlama
     p_start, p_end, p_step = config["predict_start_sec"], int(e_times[-1]), config["predict_step_sec"]
     p_times = np.arange(p_start, p_end, p_step, dtype=float)
@@ -152,4 +159,14 @@ def run_pipeline(config):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Uydu Yörünge Tahmini")
+    parser.add_argument("--sp3", type=str, help="İşlenecek SP3 dosyasının yolu", default=None)
+    args = parser.parse_args()
+
+    if args.sp3:
+        CONFIG["sp3_file"] = args.sp3
+        print(f"Tanımlanan Dosya (CLI): {CONFIG['sp3_file']}")
+    else:
+        print(f"Tanımlanan Dosya (Config): {CONFIG['sp3_file']}")
+
     run_pipeline(CONFIG)
