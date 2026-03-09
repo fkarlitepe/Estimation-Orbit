@@ -32,11 +32,11 @@ def visualize_model_grid(epoch_times: np.ndarray,
     n_rows = (n_models + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 4 * n_rows), sharex=True)
-    fig.suptitle(f'Uydu G{sat_prn:02d} - Model Bazlı 3D Pozisyon Hatası', fontsize=14, fontweight='bold')
+    fig.suptitle(f'Satellite G{sat_prn:02d} - Model-Based 3D Position Error', fontsize=14, fontweight='bold')
 
     axes_flat = np.array(axes).flatten() if n_models > 1 else [axes]
 
-    print(f"\n  {'Model':12s} | {'3D RMSE (m)':>12s} | {'Maks Hata (m)':>14s} | {'95. Yüzdelik (m)':>18s}")
+    print(f"\n  {'Model':12s} | {'3D RMSE (m)':>12s} | {'Max Error (m)':>14s} | {'95th Percentile (m)':>18s}")
     print("  " + "-" * 65)
 
     for i, name in enumerate(models):
@@ -48,8 +48,8 @@ def visualize_model_grid(epoch_times: np.ndarray,
         error_3d_m = np.sqrt(np.sum((p_xyz - true_interp) ** 2, axis=1)) * 1000
 
         step = max(1, len(p_times) // 1500)
-        ax.plot(p_times[::step] / 3600, error_3d_m[::step], color=col, linewidth=1.5, alpha=0.85)
-        ax.axhline(0, color='black', linestyle='--', alpha=0.3)
+        ax.plot(p_times[::step] / 3600, error_3d_m[::step], color=col, linewidth=1.5, alpha=0.85, label='3D Error')
+        ax.axhline(0, color='black', linestyle='--', alpha=0.3, label='Zero Error')
 
         rmse = np.sqrt(np.mean(error_3d_m ** 2))
         p95 = np.percentile(error_3d_m, 95)
@@ -57,7 +57,8 @@ def visualize_model_grid(epoch_times: np.ndarray,
 
         ax.set_title(f'{name}  (RMSE: {rmse:.2f} m)', fontsize=11, fontweight='bold', color=col)
         ax.grid(True, alpha=0.3)
-        ax.set_ylabel('3D Hata (m)')
+        ax.set_ylabel('3D Error (m)')
+        ax.legend(loc='upper right', fontsize=8)
 
         print(f"  {name:12s} | {rmse:12.3f} | {max_err:14.3f} | {p95:18.3f}")
 
@@ -67,7 +68,7 @@ def visualize_model_grid(epoch_times: np.ndarray,
 
     # Alt satıra X ekseni etiketi
     for ax in axes_flat[max(0, n_models - n_cols):n_models]:
-        ax.set_xlabel('Zaman (Saat)')
+        ax.set_xlabel('Time (Hours)')
 
     print("  " + "-" * 65)
 
@@ -77,7 +78,7 @@ def visualize_model_grid(epoch_times: np.ndarray,
     os.makedirs(output_dir, exist_ok=True)
     png_path = os.path.join(output_dir, f"satellite_G{sat_prn:02d}_model_errors.png")
     fig.savefig(png_path, dpi=200, bbox_inches='tight', facecolor='white')
-    print(f"  [KAYIT] Grafik kaydedildi: {png_path}")
+    print(f"  [SAVED] Graph saved: {png_path}")
 
     plt.show()
     plt.close(fig)
@@ -102,7 +103,7 @@ def visualize_orbit_comparison(epoch_times: np.ndarray,
     n_rows = (n_models + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(18, 5 * n_rows), sharex=True)
-    fig.suptitle(f'Uydu G{sat_prn:02d} - Yörünge Karşılaştırması (Orijinal vs Tahmin)',
+    fig.suptitle(f'Satellite G{sat_prn:02d} - Orbit Comparison (Original vs Predicted)',
                  fontsize=15, fontweight='bold')
 
     axes_flat = np.array(axes).flatten() if n_models > 1 else [axes]
@@ -137,15 +138,15 @@ def visualize_orbit_comparison(epoch_times: np.ndarray,
         ax.set_title(f'{name}  (3D RMSE: {rmse:.0f} m)', fontsize=11,
                      fontweight='bold', color=model_col)
         ax.grid(True, alpha=0.3)
-        ax.set_ylabel('Konum (km)')
+        ax.set_ylabel('Position (km)')
 
         # İlk panelde legend göster
         if i == 0:
             # Özel legend: kesikli = orijinal, düz = tahmin
             from matplotlib.lines import Line2D
             legend_elements = [
-                Line2D([0], [0], color='gray', linestyle='--', linewidth=1.2, label='Orijinal'),
-                Line2D([0], [0], color='gray', linestyle='-', linewidth=1.5, label='Tahmin'),
+                Line2D([0], [0], color='gray', linestyle='--', linewidth=1.2, label='Original'),
+                Line2D([0], [0], color='gray', linestyle='-', linewidth=1.5, label='Predicted'),
                 Line2D([0], [0], color=AXIS_COLORS['X'], linewidth=2, label='X'),
                 Line2D([0], [0], color=AXIS_COLORS['Y'], linewidth=2, label='Y'),
                 Line2D([0], [0], color=AXIS_COLORS['Z'], linewidth=2, label='Z'),
@@ -159,7 +160,7 @@ def visualize_orbit_comparison(epoch_times: np.ndarray,
 
     # Alt satıra X ekseni etiketi
     for ax in axes_flat[max(0, n_models - n_cols):n_models]:
-        ax.set_xlabel('Zaman (Saat)')
+        ax.set_xlabel('Time (Hours)')
 
     plt.tight_layout()
 
@@ -167,7 +168,7 @@ def visualize_orbit_comparison(epoch_times: np.ndarray,
     os.makedirs(output_dir, exist_ok=True)
     png_path = os.path.join(output_dir, f"satellite_G{sat_prn:02d}_orbit_comparison.png")
     fig.savefig(png_path, dpi=200, bbox_inches='tight', facecolor='white')
-    print(f"  [KAYIT] Yörünge karşılaştırma grafiği kaydedildi: {png_path}")
+    print(f"  [SAVED] Orbit comparison graph saved: {png_path}")
 
     plt.show()
     plt.close(fig)
