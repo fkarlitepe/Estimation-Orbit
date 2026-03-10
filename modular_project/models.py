@@ -112,12 +112,12 @@ def predict_lagrange(epoch_times, sat_xyz, sat_clock, predict_times, config):
     Lagrange İnterpolasyonu: XYZ için pencereli polinom enterpolasyonu.
     Saat için LR kullanılır çünkü yüksek dereceli polinomlar kenarlarda
     aşırı salınım yapar (Runge fenomeni).
+    StandardScaler kullanılmaz çünkü Lagrange bir ML algoritması değil,
+    saf matematiksel bir eğri uydurma işlemidir; aksine veri ölçekleme
+    polinom stabilitesini bozabilir.
     """
     n_epochs = len(epoch_times)
     w_half = config["lagrange_window"] // 2
-
-    sc_xyz = [StandardScaler().fit_transform(sat_xyz[:, i:i+1]).ravel() for i in range(3)]
-    sc_scalers = [StandardScaler().fit(sat_xyz[:, i:i+1]) for i in range(3)]
 
     p_lists = [[], [], []]
     for t_val in predict_times:
@@ -129,10 +129,15 @@ def predict_lagrange(epoch_times, sat_xyz, sat_clock, predict_times, config):
             else: s_idx = max(0, n_epochs - config["lagrange_window"])
 
         w_t = epoch_times[s_idx:e_idx]
-        for i in range(3):
-            p_lists[i].append(lagrange(w_t, sc_xyz[i][s_idx:e_idx])(t_val))
+        w_t_shifted = w_t - w_t[0]
+        t_val_shifted = t_val - w_t[0]
 
-    pred_xyz = np.hstack([sc_scalers[i].inverse_transform(np.array(p_lists[i]).reshape(-1, 1)) for i in range(3)])
+        for i in range(3):
+            # sc_xyz yerine orijinal xyz değerlerini kullanıyoruz
+            p_lists[i].append(lagrange(w_t_shifted, sat_xyz[s_idx:e_idx, i])(t_val_shifted))
+
+    # sc_scalers yapısı kalktığı için doğrudan sonuçları alıyoruz
+    pred_xyz = np.column_stack((p_lists[0], p_lists[1], p_lists[2]))
     pred_clock = _predict_clock_linear(epoch_times, sat_clock, predict_times)
     return pred_xyz, pred_clock
 
