@@ -48,11 +48,11 @@ for j in range(1,85500):# j time sutunun sonu
         
        
         # sat1_x_train,sat1_x_test,sat1_y_train,sat1_y_test=train_test_split(sat1[:,0:1],sat1[:,2:5],test_size=0.33,random_state=0)
-        rf_reg=RandomForestRegressor(n_estimators=500, random_state=0)        
+        rf_reg=RandomForestRegressor(n_estimators=150, random_state=0)        
         rf_reg.fit(sat[:,0:1], sat[:,2:5]) #sat verisi içerisinden öğrenerek tahminleme yaptık
         sat1_xyz=rf_reg.predict([[j]]) #hangi epoğu tahmin edeceksek o saniyeyi giriyoruz
 
-        rf_reg=RandomForestRegressor(n_estimators=500, random_state=0) 
+        rf_reg=RandomForestRegressor(n_estimators=150, random_state=0) 
         rf_reg.fit(sat[:,0:1], sat[:,5:6]) #sat verisi içerisinden öğrenerek tahminleme yaptık
         sat1_t=rf_reg.predict([[j]]) #hangi epoğu tahmin edeceksek o saniyeyi giriyoruz
         
