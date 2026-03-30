@@ -5,7 +5,7 @@
 CONFIG = {
     # --- Veri Kaynakları ---
     # Not: Komut satırından `--sp3` argümanı ile ezilebilir.
-    "sp3_file": r"..\precise orbit\precise\COD0MGXFIN_20200330000_01D_05M_ORB.SP3",
+    "sp3_file": r"..\precise orbit\precise\SHA0MGXRAP_20200330000_01D_15M_ORB.SP3",
     # Not: Komut satırından `--cons` argümanı ile ezilebilir (G=GPS, R=GLONASS, E=Galileo, C=BeiDou).
     "constellation": "G",                                
     "satellite_range": (1, 32),                          # Analiz edilecek uydu PRN aralığı

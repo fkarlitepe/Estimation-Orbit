@@ -159,7 +159,7 @@ def run_pipeline(config):
             names = list(valid_cv.keys())
             values = [valid_cv[n] / 1000 for n in names]  # km cinsine çevir
             bars = ax_cv.bar(names, values, color=colors[:len(names)], edgecolor='white', linewidth=1.5)
-            ax_cv.set_title('LOO-CV 3D RMSE Comparison', fontsize=14, fontweight='bold')
+            ax_cv.set_title('LOO-CV 3D RMSE Comparison on SHA', fontsize=14, fontweight='bold')
             ax_cv.set_ylabel('3D RMSE (km)')
             ax_cv.grid(axis='y', alpha=0.3)
             for bar, val in zip(bars, values):
