@@ -32,7 +32,7 @@ def visualize_model_grid(epoch_times: np.ndarray,
     n_rows = (n_models + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(16, 4 * n_rows), sharex=True)
-    fig.suptitle(f'Satellite G{sat_prn:02d} - Model-Based 3D Position Error', fontsize=14, fontweight='bold')
+    fig.suptitle(f'Satellite G{sat_prn:02d} - Model-Based 3D Position Error on SHA', fontsize=14, fontweight='bold')
 
     axes_flat = np.array(axes).flatten() if n_models > 1 else [axes]
 
@@ -103,7 +103,7 @@ def visualize_orbit_comparison(epoch_times: np.ndarray,
     n_rows = (n_models + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(18, 5 * n_rows), sharex=True)
-    fig.suptitle(f'Satellite G{sat_prn:02d} - Orbit Comparison (Original vs Predicted)',
+    fig.suptitle(f'Satellite G{sat_prn:02d} - Orbit Comparison (Original vs Predicted) on SHA',
                  fontsize=15, fontweight='bold')
 
     axes_flat = np.array(axes).flatten() if n_models > 1 else [axes]
